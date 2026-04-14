@@ -64,6 +64,24 @@
       z-index: 10;
     }
 
+    /* ── Handoff ── */
+    #screen-handoff {
+      align-items: center;
+      justify-content: center;
+      gap: 24px;
+      padding: 40px;
+      text-align: center;
+    }
+    #screen-handoff h2 { font-size: 1.8rem; font-weight: 700; }
+    #handoff-steps { color: #00e5ff; font-size: 1.1rem; }
+    #screen-handoff p.instruction { color: #888; font-size: 1rem; max-width: 300px; line-height: 1.6; }
+    #btn-find {
+      background: #00e5ff; color: #000;
+      border: none; border-radius: 32px;
+      padding: 16px 40px; font-size: 1.1rem; font-weight: 700;
+      cursor: pointer; margin-top: 8px;
+    }
+
     /* ── Navigating ── */
     #screen-navigating { position: relative; }
     .nav-view { display: none; flex-direction: column; height: 100vh; height: 100dvh; }
@@ -123,6 +141,14 @@
     <canvas id="map-canvas"></canvas>
     <canvas id="chart-canvas"></canvas>
     <button type="button" id="btn-stop" disabled>Stop Recording</button>
+  </div>
+
+  <!-- Handoff -->
+  <div id="screen-handoff" class="screen">
+    <h2>Path Recorded</h2>
+    <p id="handoff-steps">0 steps</p>
+    <p class="instruction">Walk back to the starting location, then press Start Finding.</p>
+    <button type="button" id="btn-find">Start Finding</button>
   </div>
 
   <!-- Navigating -->
@@ -215,6 +241,7 @@
     // ── Button wiring ──────────────────────────────────────────────────
     document.getElementById('btn-start').addEventListener('click', onStartRecording);
     document.getElementById('btn-stop').addEventListener('click', onStopRecording);
+    document.getElementById('btn-find').addEventListener('click', onStartFinding);
     document.getElementById('btn-to-finder').addEventListener('click', () => showNavView('view-finder'));
     document.getElementById('btn-to-map').addEventListener('click',    () => showNavView('view-map'));
 
@@ -243,7 +270,17 @@
     }
 
     function onStopRecording() {
-      currentPos = {x:0, y:0};   // Person B always starts from origin
+      document.getElementById('handoff-steps').textContent = stepCount + ' steps recorded';
+      showScreen('screen-handoff');
+    }
+
+    function onStartFinding() {
+      currentPos = {x:0, y:0};   // Person B starts from origin
+      ema = 1.0;
+      stepArmed = false;
+      stepArmedTime = 0;
+      lastStepTime = 0;
+      magHistory.length = 0;
       showScreen('screen-navigating');
     }
 
