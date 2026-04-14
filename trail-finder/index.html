@@ -281,8 +281,105 @@
       canvas.height = canvas.offsetHeight * window.devicePixelRatio;
     }
 
+    window.addEventListener('resize', () => {
+      resizeCanvas(mapCanvas);
+      resizeCanvas(navCanvas);
+    });
+
+    // Auto-scale path to fill canvas with padding
+    function buildTransform(canvas, path, padding) {
+      padding = padding || 80;
+      if (path.length < 2) {
+        const scale = Math.min(canvas.width, canvas.height) / 20;
+        return { cx: canvas.width / 2, cy: canvas.height / 2, scale };
+      }
+      const xs = path.map(p => p.x), ys = path.map(p => p.y);
+      const minX = Math.min.apply(null, xs), maxX = Math.max.apply(null, xs);
+      const minY = Math.min.apply(null, ys), maxY = Math.max.apply(null, ys);
+      const rangeX = maxX - minX || 1, rangeY = maxY - minY || 1;
+      const scale = Math.min(
+        (canvas.width  - padding * 2) / rangeX,
+        (canvas.height - padding * 2) / rangeY
+      );
+      return {
+        cx: canvas.width  / 2 - ((minX + maxX) / 2) * scale,
+        cy: canvas.height / 2 + ((minY + maxY) / 2) * scale,
+        scale,
+      };
+    }
+
+    // World coords (meters) → canvas pixels. Y-axis: canvas down = world south.
+    function worldToCanvas(t, p) {
+      return { cx: t.cx + p.x * t.scale, cy: t.cy - p.y * t.scale };
+    }
+
+    function drawGrid(ctx, canvas, t) {
+      const step = Math.max(t.scale * 5, 30);
+      ctx.strokeStyle = '#1a1a2e';
+      ctx.lineWidth = 1;
+      for (let x = ((t.cx % step) + step) % step; x < canvas.width;  x += step) {
+        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
+      }
+      for (let y = ((t.cy % step) + step) % step; y < canvas.height; y += step) {
+        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
+      }
+    }
+
+    function drawGlowingPath(ctx, t, path, alpha) {
+      alpha = alpha == null ? 1.0 : alpha;
+      if (path.length < 2) return;
+      const pts = path.map(function(p) { return worldToCanvas(t, p); });
+      // Glow pass
+      ctx.save();
+      ctx.globalAlpha = 0.25 * alpha;
+      ctx.strokeStyle = '#00e5ff'; ctx.lineWidth = 10;
+      ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+      ctx.beginPath(); ctx.moveTo(pts[0].cx, pts[0].cy);
+      pts.slice(1).forEach(function(p) { ctx.lineTo(p.cx, p.cy); });
+      ctx.stroke();
+      // Core pass
+      ctx.globalAlpha = alpha;
+      ctx.lineWidth = 2.5;
+      ctx.beginPath(); ctx.moveTo(pts[0].cx, pts[0].cy);
+      pts.slice(1).forEach(function(p) { ctx.lineTo(p.cx, p.cy); });
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    function drawDot(ctx, t, pos, color, r) {
+      r = r || 8;
+      const pt = worldToCanvas(t, pos);
+      ctx.beginPath(); ctx.arc(pt.cx, pt.cy, r, 0, Math.PI * 2);
+      ctx.fillStyle = color; ctx.fill();
+    }
+
+    function drawCompassRose(ctx) {
+      var x = 44, y = 44, r = 22;
+      ctx.save(); ctx.globalAlpha = 0.65;
+      ctx.strokeStyle = '#00e5ff'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.stroke();
+      ctx.fillStyle = '#00e5ff';
+      ctx.font = 'bold ' + Math.round(r * 0.6) + 'px -apple-system';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText('N', x, y - r * 0.45);
+      ctx.strokeStyle = '#ff5252'; ctx.lineWidth = 2.5;
+      ctx.beginPath(); ctx.moveTo(x, y - r + 5); ctx.lineTo(x, y); ctx.stroke();
+      ctx.restore();
+    }
+
     // Draw loop stubs — implemented in Tasks 5 and 6
-    function drawRecording()    {}
+    function drawRecording() {
+      if (appMode !== 'recording') return;
+      mapCtx.clearRect(0, 0, mapCanvas.width, mapCanvas.height);
+      var path = recordedPath.concat([currentPos]);
+      var t = buildTransform(mapCanvas, path);
+      drawGrid(mapCtx, mapCanvas, t);
+      drawGlowingPath(mapCtx, t, path);
+      drawDot(mapCtx, t, {x:0, y:0}, '#69f0ae', 8);   // start — green
+      drawDot(mapCtx, t, currentPos,  '#ffffff', 6);   // current — white
+      drawCompassRose(mapCtx);
+      requestAnimationFrame(drawRecording);
+    }
     function drawNavMap()       {}
     function drawNavFinder()    {}
   </script>
