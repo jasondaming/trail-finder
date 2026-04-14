@@ -158,10 +158,14 @@
   <script>
     // ── Constants ──────────────────────────────────────────────────────
     const STEP_LENGTH        = 0.75;  // meters per step
-    const STEP_HIGH_G        = 1.15;  // acceleration peak to register step (g)
-    const STEP_LOW_G         = 0.90;  // must fall below this before next step
-    const STEP_COOLDOWN_MS   = 350;   // minimum ms between steps
     const ARRIVAL_DISTANCE_M = 3.0;   // meters — triggers "You're close!"
+
+    // Adaptive step detector — works on detrended signal (mag minus EMA baseline)
+    const EMA_ALPHA          = 0.15;  // EMA smoothing (higher = faster tracking)
+    const STEP_PEAK_G        = 0.10;  // detrended peak must exceed this to arm
+    const STEP_VALLEY_G      = 0.02;  // detrended must fall below this to fire
+    const STEP_COOLDOWN_MS   = 350;   // minimum ms between steps
+    const STEP_DISARM_MS     = 2000;  // disarm if peak not followed by valley within this
 
     // ── State ──────────────────────────────────────────────────────────
     let appMode  = 'welcome';    // 'welcome' | 'recording' | 'navigating'
@@ -170,9 +174,11 @@
     let currentPos   = {x:0, y:0};
     let compassHeading = 0;      // degrees, 0=North, clockwise
     let stepCount = 0;
-    let stepAboveThreshold = false;
+    let ema = 1.0;               // EMA baseline (starts at 1g = gravity at rest)
+    let stepArmed = false;       // true after detrended crosses STEP_PEAK_G
+    let stepArmedTime = 0;       // timestamp when armed, for disarm timeout
     let lastStepTime = 0;
-    const magHistory = [];         // rolling magnitude readings for chart
+    const magHistory = [];       // rolling detrended readings for chart
     const MAG_HISTORY_LEN = 300;
 
     // ── DOM refs ───────────────────────────────────────────────────────
@@ -245,8 +251,11 @@
       recordedPath = [{x:0, y:0}];
       currentPos   = {x:0, y:0};
       stepCount    = 0;
-      stepAboveThreshold = false;
+      ema          = 1.0;
+      stepArmed    = false;
+      stepArmedTime = 0;
       lastStepTime = 0;
+      magHistory.length = 0;
       document.getElementById('step-count').textContent = '0 steps';
       document.getElementById('btn-stop').disabled = false;
     }
@@ -264,16 +273,32 @@
     function onMotion(e) {
       const a = e.accelerationIncludingGravity;
       if (!a) return;
-      const mag = Math.sqrt(a.x * a.x + a.y * a.y + a.z * a.z) / 9.80665; // convert m/s² → g
-      document.getElementById('debug-mag').textContent = mag.toFixed(2) + 'g';
-      magHistory.push(mag);
+      const mag = Math.sqrt(a.x * a.x + a.y * a.y + a.z * a.z) / 9.80665; // m/s² → g
+
+      // Update adaptive baseline via EMA
+      ema = EMA_ALPHA * mag + (1 - EMA_ALPHA) * ema;
+      const detrended = mag - ema;
+
+      // Chart shows detrended signal — maps directly to what the detector sees
+      magHistory.push(detrended);
       if (magHistory.length > MAG_HISTORY_LEN) magHistory.shift();
 
-      if (!stepAboveThreshold && mag > STEP_HIGH_G) {
-        stepAboveThreshold = true;
-      } else if (stepAboveThreshold && mag < STEP_LOW_G) {
-        stepAboveThreshold = false;
-        const now = Date.now();
+      document.getElementById('debug-mag').textContent = detrended.toFixed(2) + 'g';
+
+      const now = Date.now();
+
+      // Disarm if the peak was too long ago (person stopped mid-stride)
+      if (stepArmed && (now - stepArmedTime) > STEP_DISARM_MS) {
+        stepArmed = false;
+      }
+
+      if (!stepArmed && detrended > STEP_PEAK_G) {
+        // Rising edge: detrended crossed above peak threshold — arm the detector
+        stepArmed = true;
+        stepArmedTime = now;
+      } else if (stepArmed && detrended < STEP_VALLEY_G) {
+        // Falling edge: returned to baseline — one step has completed
+        stepArmed = false;
         if (now - lastStepTime >= STEP_COOLDOWN_MS) {
           lastStepTime = now;
           recordStep();
@@ -397,21 +422,27 @@
 
       if (magHistory.length < 2) return;
 
-      // Y range: 0 to 2.5g
-      var yMin = 0, yMax = 2.5;
+      // Y range: detrended signal, centered on zero (±0.5g range)
+      var yMin = -0.5, yMax = 0.5;
       var toY = function(v) { return h - ((v - yMin) / (yMax - yMin)) * h; };
 
-      // Threshold lines
+      // Zero line
       chartCtx.save();
-      chartCtx.setLineDash([4, 3]);
+      chartCtx.strokeStyle = '#333';
       chartCtx.lineWidth = 1;
+      chartCtx.beginPath();
+      chartCtx.moveTo(0, toY(0)); chartCtx.lineTo(w, toY(0));
+      chartCtx.stroke();
+
+      // Threshold lines
+      chartCtx.setLineDash([4, 3]);
       chartCtx.strokeStyle = '#ff5252';
       chartCtx.beginPath();
-      chartCtx.moveTo(0, toY(STEP_HIGH_G)); chartCtx.lineTo(w, toY(STEP_HIGH_G));
+      chartCtx.moveTo(0, toY(STEP_PEAK_G)); chartCtx.lineTo(w, toY(STEP_PEAK_G));
       chartCtx.stroke();
       chartCtx.strokeStyle = '#ffab40';
       chartCtx.beginPath();
-      chartCtx.moveTo(0, toY(STEP_LOW_G)); chartCtx.lineTo(w, toY(STEP_LOW_G));
+      chartCtx.moveTo(0, toY(STEP_VALLEY_G)); chartCtx.lineTo(w, toY(STEP_VALLEY_G));
       chartCtx.stroke();
       chartCtx.setLineDash([]);
       chartCtx.restore();
@@ -420,9 +451,9 @@
       chartCtx.save();
       chartCtx.font = '8px -apple-system';
       chartCtx.fillStyle = '#ff5252';
-      chartCtx.fillText(STEP_HIGH_G + 'g', 2, toY(STEP_HIGH_G) - 2);
+      chartCtx.fillText('arm ' + STEP_PEAK_G + 'g', 2, toY(STEP_PEAK_G) - 2);
       chartCtx.fillStyle = '#ffab40';
-      chartCtx.fillText(STEP_LOW_G + 'g', 2, toY(STEP_LOW_G) - 2);
+      chartCtx.fillText('fire ' + STEP_VALLEY_G + 'g', 2, toY(STEP_VALLEY_G) - 2);
       chartCtx.restore();
 
       // Magnitude line
