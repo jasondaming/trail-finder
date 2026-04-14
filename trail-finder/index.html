@@ -108,6 +108,7 @@
     <div id="hud-recording">
       <span id="rec-indicator">● REC</span>
       <span id="step-count">0 steps</span>
+      <span id="debug-mag" style="color:#888;font-size:0.75rem"></span>
     </div>
     <canvas id="map-canvas"></canvas>
     <button type="button" id="btn-stop" disabled>Stop Recording</button>
@@ -146,9 +147,9 @@
   <script>
     // ── Constants ──────────────────────────────────────────────────────
     const STEP_LENGTH        = 0.75;  // meters per step
-    const STEP_HIGH_G        = 1.8;   // acceleration peak to register step (g)
-    const STEP_LOW_G         = 1.2;   // must fall below this before next step
-    const STEP_COOLDOWN_MS   = 300;   // minimum ms between steps
+    const STEP_HIGH_G        = 1.15;  // acceleration peak to register step (g)
+    const STEP_LOW_G         = 0.90;  // must fall below this before next step
+    const STEP_COOLDOWN_MS   = 350;   // minimum ms between steps
     const ARRIVAL_DISTANCE_M = 3.0;   // meters — triggers "You're close!"
 
     // ── State ──────────────────────────────────────────────────────────
@@ -232,7 +233,7 @@
       stepAboveThreshold = false;
       lastStepTime = 0;
       document.getElementById('step-count').textContent = '0 steps';
-      document.getElementById('btn-stop').disabled = true;
+      document.getElementById('btn-stop').disabled = false;
     }
 
     function onOrientation(e) {
@@ -249,6 +250,7 @@
       const a = e.accelerationIncludingGravity;
       if (!a) return;
       const mag = Math.sqrt(a.x * a.x + a.y * a.y + a.z * a.z) / 9.80665; // convert m/s² → g
+      document.getElementById('debug-mag').textContent = mag.toFixed(2) + 'g';
 
       if (!stepAboveThreshold && mag > STEP_HIGH_G) {
         stepAboveThreshold = true;
@@ -272,7 +274,6 @@
         recordedPath.push({...currentPos});
         stepCount++;
         document.getElementById('step-count').textContent = stepCount + ' steps';
-        if (stepCount >= 5) document.getElementById('btn-stop').disabled = false;
       }
     }
 
