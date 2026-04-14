@@ -370,6 +370,7 @@
     // Draw loop stubs — implemented in Tasks 5 and 6
     function drawRecording() {
       if (appMode !== 'recording') return;
+      if (mapCanvas.width === 0 || mapCanvas.height === 0) { requestAnimationFrame(drawRecording); return; }
       mapCtx.clearRect(0, 0, mapCanvas.width, mapCanvas.height);
       var path = recordedPath.concat([currentPos]);
       var t = buildTransform(mapCanvas, path);
