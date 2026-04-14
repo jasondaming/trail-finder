@@ -539,7 +539,7 @@
 
       // Two arrows on Person B's position: facing direction + path direction
       var myPt = worldToCanvas(t, currentPos);
-      var arrowLen = 42 * (window.devicePixelRatio || 1);
+      var arrowLen = Math.min(navCanvas.width, navCanvas.height) * 0.22;
 
       // Path direction (cyan) — where to go to stay on trail
       var dx = target.x - currentPos.x, dy = target.y - currentPos.y;
@@ -547,7 +547,7 @@
       drawArrow(navCtx, myPt.cx, myPt.cy, pathBearing, arrowLen, '#00e5ff');
 
       // Facing direction (white) — which way Person B is currently pointing
-      drawArrow(navCtx, myPt.cx, myPt.cy, compassHeading, arrowLen * 0.65, '#ffffff');
+      drawArrow(navCtx, myPt.cx, myPt.cy, compassHeading, arrowLen * 0.7, '#ffffff');
 
       drawDot(navCtx, t, currentPos, '#ffffff', 5);   // Person B dot on top
       drawCompassRose(navCtx);
