@@ -144,7 +144,65 @@
   </div>
 
   <script>
-    // JS added in Tasks 2–7
+    // ── Constants ──────────────────────────────────────────────────────
+    const STEP_LENGTH        = 0.75;  // meters per step
+    const STEP_HIGH_G        = 1.8;   // acceleration peak to register step (g)
+    const STEP_LOW_G         = 1.2;   // must fall below this before next step
+    const STEP_COOLDOWN_MS   = 300;   // minimum ms between steps
+    const ARRIVAL_DISTANCE_M = 3.0;   // meters — triggers "You're close!"
+
+    // ── State ──────────────────────────────────────────────────────────
+    let appMode  = 'welcome';    // 'welcome' | 'recording' | 'navigating'
+    let navView  = 'map';        // 'map' | 'finder'
+    let recordedPath = [];       // [{x, y}] meters from origin
+    let currentPos   = {x:0, y:0};
+    let compassHeading = 0;      // degrees, 0=North, clockwise
+    let stepCount = 0;
+    let stepAboveThreshold = false;
+    let lastStepTime = 0;
+
+    // ── DOM refs ───────────────────────────────────────────────────────
+    const mapCanvas = document.getElementById('map-canvas');
+    const navCanvas = document.getElementById('nav-canvas');
+    const mapCtx    = mapCanvas.getContext('2d');
+    const navCtx    = navCanvas.getContext('2d');
+
+    // ── Screen / view switching ────────────────────────────────────────
+    function showScreen(id) {
+      document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+      document.getElementById(id).classList.add('active');
+      appMode = id.replace('screen-', '');
+      if (id === 'screen-recording') {
+        setTimeout(() => resizeCanvas(mapCanvas), 50);
+        requestAnimationFrame(drawRecording);
+      }
+      if (id === 'screen-navigating') {
+        setTimeout(() => resizeCanvas(navCanvas), 50);
+        requestAnimationFrame(drawNavMap);
+      }
+    }
+
+    function showNavView(id) {
+      document.querySelectorAll('.nav-view').forEach(v => v.classList.remove('active'));
+      document.getElementById(id).classList.add('active');
+      navView = id.replace('view-', '');
+      if (navView === 'finder') requestAnimationFrame(drawNavFinder);
+      if (navView === 'map')    requestAnimationFrame(drawNavMap);
+    }
+
+    // ── Button wiring ──────────────────────────────────────────────────
+    document.getElementById('btn-start').addEventListener('click', onStartRecording);
+    document.getElementById('btn-stop').addEventListener('click', onStopRecording);
+    document.getElementById('btn-to-finder').addEventListener('click', () => showNavView('view-finder'));
+    document.getElementById('btn-to-map').addEventListener('click',    () => showNavView('view-map'));
+
+    // Stubs — implemented in subsequent tasks
+    function onStartRecording() {}
+    function onStopRecording()  {}
+    function resizeCanvas()     {}
+    function drawRecording()    {}
+    function drawNavMap()       {}
+    function drawNavFinder()    {}
   </script>
 </body>
 </html>
