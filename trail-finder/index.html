@@ -53,6 +53,16 @@
       padding: 16px 40px; font-size: 1rem; font-weight: 700; cursor: pointer;
     }
     #btn-stop:disabled { background: #444; color: #666; cursor: default; }
+    #chart-canvas {
+      position: absolute;
+      bottom: 108px;
+      right: 16px;
+      width: 200px;
+      height: 72px;
+      border-radius: 8px;
+      background: rgba(0,0,0,0.55);
+      z-index: 10;
+    }
 
     /* ── Navigating ── */
     #screen-navigating { position: relative; }
@@ -111,6 +121,7 @@
       <span id="debug-mag" style="color:#888;font-size:0.75rem"></span>
     </div>
     <canvas id="map-canvas"></canvas>
+    <canvas id="chart-canvas"></canvas>
     <button type="button" id="btn-stop" disabled>Stop Recording</button>
   </div>
 
@@ -161,12 +172,16 @@
     let stepCount = 0;
     let stepAboveThreshold = false;
     let lastStepTime = 0;
+    const magHistory = [];         // rolling magnitude readings for chart
+    const MAG_HISTORY_LEN = 300;
 
     // ── DOM refs ───────────────────────────────────────────────────────
-    const mapCanvas = document.getElementById('map-canvas');
-    const navCanvas = document.getElementById('nav-canvas');
-    const mapCtx    = mapCanvas.getContext('2d');
-    const navCtx    = navCanvas.getContext('2d');
+    const mapCanvas   = document.getElementById('map-canvas');
+    const navCanvas   = document.getElementById('nav-canvas');
+    const chartCanvas = document.getElementById('chart-canvas');
+    const mapCtx      = mapCanvas.getContext('2d');
+    const navCtx      = navCanvas.getContext('2d');
+    const chartCtx    = chartCanvas.getContext('2d');
 
     // ── Screen / view switching ────────────────────────────────────────
     function showScreen(id) {
@@ -251,6 +266,8 @@
       if (!a) return;
       const mag = Math.sqrt(a.x * a.x + a.y * a.y + a.z * a.z) / 9.80665; // convert m/s² → g
       document.getElementById('debug-mag').textContent = mag.toFixed(2) + 'g';
+      magHistory.push(mag);
+      if (magHistory.length > MAG_HISTORY_LEN) magHistory.shift();
 
       if (!stepAboveThreshold && mag > STEP_HIGH_G) {
         stepAboveThreshold = true;
@@ -368,6 +385,62 @@
       ctx.restore();
     }
 
+    function drawMagChart() {
+      var dpr = window.devicePixelRatio || 1;
+      var w = chartCanvas.offsetWidth, h = chartCanvas.offsetHeight;
+      if (chartCanvas.width !== w * dpr || chartCanvas.height !== h * dpr) {
+        chartCanvas.width  = w * dpr;
+        chartCanvas.height = h * dpr;
+        chartCtx.scale(dpr, dpr);
+      }
+      chartCtx.clearRect(0, 0, w, h);
+
+      if (magHistory.length < 2) return;
+
+      // Y range: 0 to 2.5g
+      var yMin = 0, yMax = 2.5;
+      var toY = function(v) { return h - ((v - yMin) / (yMax - yMin)) * h; };
+
+      // Threshold lines
+      chartCtx.save();
+      chartCtx.setLineDash([4, 3]);
+      chartCtx.lineWidth = 1;
+      chartCtx.strokeStyle = '#ff5252';
+      chartCtx.beginPath();
+      chartCtx.moveTo(0, toY(STEP_HIGH_G)); chartCtx.lineTo(w, toY(STEP_HIGH_G));
+      chartCtx.stroke();
+      chartCtx.strokeStyle = '#ffab40';
+      chartCtx.beginPath();
+      chartCtx.moveTo(0, toY(STEP_LOW_G)); chartCtx.lineTo(w, toY(STEP_LOW_G));
+      chartCtx.stroke();
+      chartCtx.setLineDash([]);
+      chartCtx.restore();
+
+      // Threshold labels (tiny)
+      chartCtx.save();
+      chartCtx.font = '8px -apple-system';
+      chartCtx.fillStyle = '#ff5252';
+      chartCtx.fillText(STEP_HIGH_G + 'g', 2, toY(STEP_HIGH_G) - 2);
+      chartCtx.fillStyle = '#ffab40';
+      chartCtx.fillText(STEP_LOW_G + 'g', 2, toY(STEP_LOW_G) - 2);
+      chartCtx.restore();
+
+      // Magnitude line
+      var len = magHistory.length;
+      chartCtx.save();
+      chartCtx.strokeStyle = '#00e5ff';
+      chartCtx.lineWidth = 1.5;
+      chartCtx.lineJoin = 'round';
+      chartCtx.beginPath();
+      for (var i = 0; i < len; i++) {
+        var x = (i / (MAG_HISTORY_LEN - 1)) * w;
+        var y = toY(magHistory[i]);
+        if (i === 0) chartCtx.moveTo(x, y); else chartCtx.lineTo(x, y);
+      }
+      chartCtx.stroke();
+      chartCtx.restore();
+    }
+
     // ── Draw loops ──────────────────────────────────────────────────────────
     function drawRecording() {
       if (appMode !== 'recording') return;
@@ -380,6 +453,7 @@
       drawDot(mapCtx, t, {x:0, y:0}, '#69f0ae', 8);   // start — green
       drawDot(mapCtx, t, currentPos,  '#ffffff', 6);   // current — white
       drawCompassRose(mapCtx);
+      drawMagChart();
       requestAnimationFrame(drawRecording);
     }
     function getDist(a, b) {
