@@ -192,6 +192,7 @@
     const STEP_VALLEY_G      = 0.02;  // detrended must fall below this to fire
     const STEP_COOLDOWN_MS   = 350;   // minimum ms between steps
     const STEP_DISARM_MS     = 2000;  // disarm if peak not followed by valley within this
+    const PATH_LOOKAHEAD_M   = 5.0;   // meters to look ahead along recorded path for finder arrow
 
     // ── State ──────────────────────────────────────────────────────────
     let appMode  = 'welcome';    // 'welcome' | 'recording' | 'navigating'
@@ -539,15 +540,39 @@
       return recordedPath[recordedPath.length - 1] || {x:0, y:0};
     }
 
+    // Returns a point PATH_LOOKAHEAD_M ahead of the closest path point to currentPos.
+    // This makes the finder arrow guide along the path rather than cutting straight to the end.
+    function getPathTarget() {
+      if (recordedPath.length < 2) return getDestination();
+
+      // Find the closest recorded path point to our current position
+      var closestIdx = 0, closestDist = Infinity;
+      for (var i = 0; i < recordedPath.length; i++) {
+        var d = getDist(currentPos, recordedPath[i]);
+        if (d < closestDist) { closestDist = d; closestIdx = i; }
+      }
+
+      // Walk forward along path segments until PATH_LOOKAHEAD_M is accumulated
+      var accumulated = 0, targetIdx = closestIdx;
+      for (var i = closestIdx; i < recordedPath.length - 1; i++) {
+        accumulated += getDist(recordedPath[i], recordedPath[i + 1]);
+        targetIdx = i + 1;
+        if (accumulated >= PATH_LOOKAHEAD_M) break;
+      }
+
+      return recordedPath[targetIdx];
+    }
+
     function updateNavUI() {
-      var dest = getDestination();
-      var dist = getDist(currentPos, dest);
+      var dest   = getDestination();
+      var target = getPathTarget();    // lookahead point along path for the arrow
+      var dist   = getDist(currentPos, dest);
       var distStr = Math.round(dist) + ' m';
 
       document.getElementById('distance-display').textContent = distStr + ' to destination';
       document.getElementById('finder-distance').textContent  = distStr;
 
-      var bearing = getBearingDeg(currentPos, dest, compassHeading);
+      var bearing = getBearingDeg(currentPos, target, compassHeading);
       document.getElementById('finder-arrow').setAttribute(
         'transform', 'rotate(' + bearing + ', 130, 130)'
       );
@@ -565,9 +590,11 @@
       var allPts  = recordedPath.concat([currentPos]);
       var t = buildTransform(navCanvas, allPts);
       drawGrid(navCtx, navCanvas, t);
+      var target = getPathTarget();
       drawGlowingPath(navCtx, t, recordedPath, 0.5);           // recorded path, faded
       drawDot(navCtx, t, {x:0, y:0}, '#69f0ae', 8);            // start — green
       drawDot(navCtx, t, dest,        '#ff5252', 8);            // destination — red
+      drawDot(navCtx, t, target,      '#ffeb3b', 6);            // next target on path — yellow
       drawDot(navCtx, t, currentPos,  '#ffffff', 6);            // person B — white
       drawCompassRose(navCtx);
       updateNavUI();
