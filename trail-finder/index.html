@@ -83,42 +83,14 @@
     }
 
     /* ── Navigating ── */
-    #screen-navigating { position: relative; }
-    .nav-view { display: none; flex-direction: column; height: 100vh; height: 100dvh; }
-    .nav-view.active { display: flex; }
-
+    #screen-navigating { display: flex; flex-direction: column; position: relative; }
     #hud-nav {
       position: absolute; top: 0; left: 0; right: 0; z-index: 10;
-      display: flex; justify-content: space-between; align-items: center;
+      display: flex; justify-content: center; align-items: center;
       padding: 16px 20px;
     }
     #distance-display { color: #e0e0e0; font-size: 0.9rem; }
-    #btn-to-finder {
-      background: #00e5ff22; color: #00e5ff;
-      border: 1px solid #00e5ff44; border-radius: 12px;
-      padding: 6px 16px; font-size: 0.85rem; font-weight: 600; cursor: pointer;
-    }
     #nav-canvas { width: 100%; flex: 1; display: block; }
-
-    /* ── Finder view ── */
-    #view-finder { position: relative; align-items: center; justify-content: center; gap: 16px; padding: 40px; }
-    #btn-to-map {
-      position: absolute; top: 20px; right: 20px;
-      background: #00e5ff22; color: #00e5ff;
-      border: 1px solid #00e5ff44; border-radius: 12px;
-      padding: 6px 16px; font-size: 0.85rem; font-weight: 600; cursor: pointer;
-    }
-    #finder-rings { position: relative; width: 260px; height: 260px; }
-    #finder-distance { font-size: 3rem; font-weight: 700; color: #e0e0e0; }
-    #finder-label { color: #888; font-size: 1rem; }
-    #arrival-msg { color: #69f0ae; font-size: 1.1rem; font-weight: 600; display: none; }
-
-    @keyframes pulse-ring {
-      0%   { opacity: 0.5; }
-      50%  { opacity: 0.1; }
-      100% { opacity: 0.5; }
-    }
-    #finder-rings.near circle { animation: pulse-ring 1s ease-in-out infinite; }
   </style>
 </head>
 <body>
@@ -153,32 +125,10 @@
 
   <!-- Navigating -->
   <div id="screen-navigating" class="screen">
-    <div id="view-map" class="nav-view active">
-      <div id="hud-nav">
-        <span id="distance-display">-- m to destination</span>
-        <button type="button" id="btn-to-finder">FINDER</button>
-      </div>
-      <canvas id="nav-canvas"></canvas>
+    <div id="hud-nav">
+      <span id="distance-display">-- m to destination</span>
     </div>
-    <div id="view-finder" class="nav-view">
-      <button type="button" id="btn-to-map">MAP</button>
-      <div id="finder-rings">
-        <svg width="260" height="260" viewBox="0 0 260 260" id="finder-svg">
-          <circle cx="130" cy="130" r="120" fill="none" stroke="#00e5ff" stroke-width="1"   opacity="0.15"/>
-          <circle cx="130" cy="130" r="95"  fill="none" stroke="#00e5ff" stroke-width="1.5" opacity="0.3"/>
-          <circle cx="130" cy="130" r="68"  fill="none" stroke="#00e5ff" stroke-width="2"   opacity="0.5"/>
-          <circle cx="130" cy="130" r="40"  fill="#00e5ff" opacity="0.08"/>
-          <g id="finder-arrow" transform="rotate(0, 130, 130)">
-            <polygon points="130,60 140,95 130,85 120,95" fill="#00e5ff"/>
-            <line x1="130" y1="90" x2="130" y2="160" stroke="#00e5ff" stroke-width="4" stroke-linecap="round"/>
-          </g>
-          <circle cx="130" cy="130" r="5" fill="#fff" opacity="0.4"/>
-        </svg>
-      </div>
-      <div id="finder-distance">-- m</div>
-      <div id="finder-label">to destination</div>
-      <div id="arrival-msg">You're close!</div>
-    </div>
+    <canvas id="nav-canvas"></canvas>
   </div>
 
   <script>
@@ -196,7 +146,6 @@
 
     // ── State ──────────────────────────────────────────────────────────
     let appMode  = 'welcome';    // 'welcome' | 'recording' | 'navigating'
-    let navView  = 'map';        // 'map' | 'finder'
     let recordedPath = [];       // [{x, y}] meters from origin
     let currentPos   = {x:0, y:0};
     let compassHeading = 0;      // degrees, 0=North, clockwise
@@ -216,7 +165,7 @@
     const navCtx      = navCanvas.getContext('2d');
     const chartCtx    = chartCanvas.getContext('2d');
 
-    // ── Screen / view switching ────────────────────────────────────────
+    // ── Screen switching ───────────────────────────────────────────────
     function showScreen(id) {
       document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
       document.getElementById(id).classList.add('active');
@@ -231,20 +180,10 @@
       }
     }
 
-    function showNavView(id) {
-      document.querySelectorAll('.nav-view').forEach(v => v.classList.remove('active'));
-      document.getElementById(id).classList.add('active');
-      navView = id.replace('view-', '');
-      if (navView === 'finder') requestAnimationFrame(drawNavFinder);
-      if (navView === 'map')    requestAnimationFrame(drawNavMap);
-    }
-
     // ── Button wiring ──────────────────────────────────────────────────
     document.getElementById('btn-start').addEventListener('click', onStartRecording);
     document.getElementById('btn-stop').addEventListener('click', onStopRecording);
     document.getElementById('btn-find').addEventListener('click', onStartFinding);
-    document.getElementById('btn-to-finder').addEventListener('click', () => showNavView('view-finder'));
-    document.getElementById('btn-to-map').addEventListener('click',    () => showNavView('view-map'));
 
     async function onStartRecording() {
       if (typeof DeviceMotionEvent === 'undefined') {
@@ -563,47 +502,61 @@
       return recordedPath[targetIdx];
     }
 
-    function updateNavUI() {
-      var dest   = getDestination();
-      var target = getPathTarget();    // lookahead point along path for the arrow
-      var dist   = getDist(currentPos, dest);
-      var distStr = Math.round(dist) + ' m';
-
-      document.getElementById('distance-display').textContent = distStr + ' to destination';
-      document.getElementById('finder-distance').textContent  = distStr;
-
-      var bearing = getBearingDeg(currentPos, target, compassHeading);
-      document.getElementById('finder-arrow').setAttribute(
-        'transform', 'rotate(' + bearing + ', 130, 130)'
-      );
-
-      var near = dist <= ARRIVAL_DISTANCE_M;
-      document.getElementById('arrival-msg').style.display = near ? 'block' : 'none';
-      document.getElementById('finder-rings').classList.toggle('near', near);
+    // Draws an arrow from (cx, cy) pointing in bearingDeg (clockwise from north).
+    function drawArrow(ctx, cx, cy, bearingDeg, length, color) {
+      var rad = (bearingDeg - 90) * Math.PI / 180;  // convert bearing to canvas angle
+      var ex = cx + Math.cos(rad) * length;
+      var ey = cy + Math.sin(rad) * length;
+      var headLen = Math.max(10, length * 0.35);
+      var headAng = Math.PI / 6;
+      ctx.save();
+      ctx.strokeStyle = color; ctx.fillStyle = color;
+      ctx.lineWidth = 3; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(ex, ey); ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(ex, ey);
+      ctx.lineTo(ex - headLen * Math.cos(rad - headAng), ey - headLen * Math.sin(rad - headAng));
+      ctx.lineTo(ex - headLen * Math.cos(rad + headAng), ey - headLen * Math.sin(rad + headAng));
+      ctx.closePath(); ctx.fill();
+      ctx.restore();
     }
 
     function drawNavMap() {
-      if (appMode !== 'navigating' || navView !== 'map') return;
+      if (appMode !== 'navigating') return;
       if (navCanvas.width === 0 || navCanvas.height === 0) { requestAnimationFrame(drawNavMap); return; }
       navCtx.clearRect(0, 0, navCanvas.width, navCanvas.height);
-      var dest    = getDestination();
-      var allPts  = recordedPath.concat([currentPos]);
-      var t = buildTransform(navCanvas, allPts);
-      drawGrid(navCtx, navCanvas, t);
+
+      var dest   = getDestination();
       var target = getPathTarget();
-      drawGlowingPath(navCtx, t, recordedPath, 0.5);           // recorded path, faded
-      drawDot(navCtx, t, {x:0, y:0}, '#69f0ae', 8);            // start — green
-      drawDot(navCtx, t, dest,        '#ff5252', 8);            // destination — red
-      drawDot(navCtx, t, target,      '#ffeb3b', 6);            // next target on path — yellow
-      drawDot(navCtx, t, currentPos,  '#ffffff', 6);            // person B — white
+      var dist   = getDist(currentPos, dest);
+      var allPts = recordedPath.concat([currentPos]);
+      var t = buildTransform(navCanvas, allPts);
+
+      drawGrid(navCtx, navCanvas, t);
+      drawGlowingPath(navCtx, t, recordedPath, 0.5);  // recorded path, faded
+      drawDot(navCtx, t, {x:0, y:0}, '#69f0ae', 8);   // start — green
+      drawDot(navCtx, t, dest,        '#ff5252', 8);   // destination — red
+
+      // Two arrows on Person B's position: facing direction + path direction
+      var myPt = worldToCanvas(t, currentPos);
+      var arrowLen = 42 * (window.devicePixelRatio || 1);
+
+      // Path direction (cyan) — where to go to stay on trail
+      var dx = target.x - currentPos.x, dy = target.y - currentPos.y;
+      var pathBearing = ((Math.atan2(dx, dy) * 180 / Math.PI) + 360) % 360;
+      drawArrow(navCtx, myPt.cx, myPt.cy, pathBearing, arrowLen, '#00e5ff');
+
+      // Facing direction (white) — which way Person B is currently pointing
+      drawArrow(navCtx, myPt.cx, myPt.cy, compassHeading, arrowLen * 0.65, '#ffffff');
+
+      drawDot(navCtx, t, currentPos, '#ffffff', 5);   // Person B dot on top
       drawCompassRose(navCtx);
-      updateNavUI();
+
+      // Distance HUD
+      var label = dist <= ARRIVAL_DISTANCE_M ? "You're close!" : Math.round(dist) + ' m to destination';
+      document.getElementById('distance-display').textContent = label;
+
       requestAnimationFrame(drawNavMap);
-    }
-    function drawNavFinder() {
-      if (appMode !== 'navigating' || navView !== 'finder') return;
-      updateNavUI();
-      requestAnimationFrame(drawNavFinder);
     }
   </script>
 </body>
