@@ -230,6 +230,7 @@
       currentPos   = {x:0, y:0};
       stepCount    = 0;
       stepAboveThreshold = false;
+      lastStepTime = 0;
       document.getElementById('step-count').textContent = '0 steps';
       document.getElementById('btn-stop').disabled = true;
     }
@@ -247,7 +248,7 @@
     function onMotion(e) {
       const a = e.accelerationIncludingGravity;
       if (!a) return;
-      const mag = Math.sqrt(a.x * a.x + a.y * a.y + a.z * a.z);
+      const mag = Math.sqrt(a.x * a.x + a.y * a.y + a.z * a.z) / 9.80665; // convert m/s² → g
 
       if (!stepAboveThreshold && mag > STEP_HIGH_G) {
         stepAboveThreshold = true;
