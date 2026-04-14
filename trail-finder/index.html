@@ -244,7 +244,36 @@
       }
     }
 
-    function onMotion(e) { /* Task 4 */ }
+    function onMotion(e) {
+      const a = e.accelerationIncludingGravity;
+      if (!a) return;
+      const mag = Math.sqrt(a.x * a.x + a.y * a.y + a.z * a.z);
+
+      if (!stepAboveThreshold && mag > STEP_HIGH_G) {
+        stepAboveThreshold = true;
+      } else if (stepAboveThreshold && mag < STEP_LOW_G) {
+        stepAboveThreshold = false;
+        const now = Date.now();
+        if (now - lastStepTime >= STEP_COOLDOWN_MS) {
+          lastStepTime = now;
+          recordStep();
+        }
+      }
+    }
+
+    function recordStep() {
+      const hr = compassHeading * Math.PI / 180;
+      currentPos = {
+        x: currentPos.x + STEP_LENGTH * Math.sin(hr),
+        y: currentPos.y + STEP_LENGTH * Math.cos(hr),
+      };
+      if (appMode === 'recording') {
+        recordedPath.push({...currentPos});
+        stepCount++;
+        document.getElementById('step-count').textContent = stepCount + ' steps';
+        if (stepCount >= 5) document.getElementById('btn-stop').disabled = false;
+      }
+    }
 
     function resizeCanvas(canvas) {
       canvas.width  = canvas.offsetWidth  * window.devicePixelRatio;
