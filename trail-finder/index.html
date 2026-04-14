@@ -11,11 +11,11 @@
       background: #0d1117;
       color: #e0e0e0;
       font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif;
-      height: 100dvh;
+      height: 100vh; height: 100dvh;
       overflow: hidden;
     }
 
-    .screen { display: none; flex-direction: column; height: 100dvh; }
+    .screen { display: none; flex-direction: column; height: 100vh; height: 100dvh; }
     .screen.active { display: flex; }
 
     /* ── Welcome ── */
@@ -56,7 +56,7 @@
 
     /* ── Navigating ── */
     #screen-navigating { position: relative; }
-    .nav-view { display: none; flex-direction: column; height: 100dvh; }
+    .nav-view { display: none; flex-direction: column; height: 100vh; height: 100dvh; }
     .nav-view.active { display: flex; }
 
     #hud-nav {
@@ -73,7 +73,7 @@
     #nav-canvas { width: 100%; flex: 1; display: block; }
 
     /* ── Finder view ── */
-    #view-finder { align-items: center; justify-content: center; gap: 16px; padding: 40px; }
+    #view-finder { position: relative; align-items: center; justify-content: center; gap: 16px; padding: 40px; }
     #btn-to-map {
       position: absolute; top: 20px; right: 20px;
       background: #00e5ff22; color: #00e5ff;
@@ -99,7 +99,7 @@
   <div id="screen-welcome" class="screen active">
     <h1>Trail Finder</h1>
     <p class="subtitle">Walk a path. Hand off the iPad. Let someone follow you.</p>
-    <button id="btn-start">Start Recording</button>
+    <button type="button" id="btn-start">Start Recording</button>
     <p id="sensor-error">Please open on an iPad and allow motion access.</p>
   </div>
 
@@ -110,7 +110,7 @@
       <span id="step-count">0 steps</span>
     </div>
     <canvas id="map-canvas"></canvas>
-    <button id="btn-stop" disabled>Stop Recording</button>
+    <button type="button" id="btn-stop" disabled>Stop Recording</button>
   </div>
 
   <!-- Navigating -->
@@ -118,12 +118,12 @@
     <div id="view-map" class="nav-view active">
       <div id="hud-nav">
         <span id="distance-display">-- m to destination</span>
-        <button id="btn-to-finder">FINDER</button>
+        <button type="button" id="btn-to-finder">FINDER</button>
       </div>
       <canvas id="nav-canvas"></canvas>
     </div>
     <div id="view-finder" class="nav-view">
-      <button id="btn-to-map">MAP</button>
+      <button type="button" id="btn-to-map">MAP</button>
       <div id="finder-rings">
         <svg width="260" height="260" viewBox="0 0 260 260" id="finder-svg">
           <circle cx="130" cy="130" r="120" fill="none" stroke="#00e5ff" stroke-width="1"   opacity="0.15"/>
