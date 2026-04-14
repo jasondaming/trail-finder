@@ -196,10 +196,62 @@
     document.getElementById('btn-to-finder').addEventListener('click', () => showNavView('view-finder'));
     document.getElementById('btn-to-map').addEventListener('click',    () => showNavView('view-map'));
 
-    // Stubs — implemented in subsequent tasks
-    function onStartRecording() {}
-    function onStopRecording()  {}
-    function resizeCanvas()     {}
+    async function onStartRecording() {
+      if (typeof DeviceMotionEvent === 'undefined') {
+        document.getElementById('sensor-error').style.display = 'block';
+        return;
+      }
+      try {
+        if (typeof DeviceMotionEvent.requestPermission === 'function') {
+          const mp = await DeviceMotionEvent.requestPermission();
+          if (mp !== 'granted') { alert('Motion access required — reload and allow.'); return; }
+        }
+        if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+          const op = await DeviceOrientationEvent.requestPermission();
+          if (op !== 'granted') { alert('Orientation access required — reload and allow.'); return; }
+        }
+      } catch (e) {
+        document.getElementById('sensor-error').style.display = 'block';
+        return;
+      }
+      window.addEventListener('deviceorientation', onOrientation, true);
+      window.addEventListener('devicemotion',      onMotion,      true);
+      resetRecording();
+      showScreen('screen-recording');
+    }
+
+    function onStopRecording() {
+      currentPos = {x:0, y:0};   // Person B always starts from origin
+      showScreen('screen-navigating');
+    }
+
+    function resetRecording() {
+      recordedPath = [{x:0, y:0}];
+      currentPos   = {x:0, y:0};
+      stepCount    = 0;
+      stepAboveThreshold = false;
+      document.getElementById('step-count').textContent = '0 steps';
+      document.getElementById('btn-stop').disabled = true;
+    }
+
+    function onOrientation(e) {
+      // webkitCompassHeading: 0=North, increases clockwise (iOS only)
+      // alpha fallback: degrees from North, counter-clockwise — invert it
+      if (e.webkitCompassHeading != null) {
+        compassHeading = e.webkitCompassHeading;
+      } else if (e.alpha != null) {
+        compassHeading = (360 - e.alpha) % 360;
+      }
+    }
+
+    function onMotion(e) { /* Task 4 */ }
+
+    function resizeCanvas(canvas) {
+      canvas.width  = canvas.offsetWidth  * devicePixelRatio;
+      canvas.height = canvas.offsetHeight * devicePixelRatio;
+    }
+
+    // Draw loop stubs — implemented in Tasks 5 and 6
     function drawRecording()    {}
     function drawNavMap()       {}
     function drawNavFinder()    {}
