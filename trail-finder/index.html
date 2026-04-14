@@ -161,7 +161,7 @@
     const ARRIVAL_DISTANCE_M = 3.0;   // meters — triggers "You're close!"
 
     // Adaptive step detector — works on detrended signal (mag minus EMA baseline)
-    const EMA_ALPHA          = 0.15;  // EMA smoothing (higher = faster tracking)
+    const EMA_ALPHA          = 0.05;  // EMA smoothing — slow enough to not track carpet steps
     const STEP_PEAK_G        = 0.10;  // detrended peak must exceed this to arm
     const STEP_VALLEY_G      = 0.02;  // detrended must fall below this to fire
     const STEP_COOLDOWN_MS   = 350;   // minimum ms between steps
