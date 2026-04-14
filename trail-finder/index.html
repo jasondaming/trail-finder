@@ -381,8 +381,60 @@
       drawCompassRose(mapCtx);
       requestAnimationFrame(drawRecording);
     }
-    function drawNavMap()       {}
-    function drawNavFinder()    {}
+    function getDist(a, b) {
+      var dx = b.x - a.x, dy = b.y - a.y;
+      return Math.sqrt(dx * dx + dy * dy);
+    }
+
+    function getBearingDeg(cur, dest, headingDeg) {
+      var dx = dest.x - cur.x, dy = dest.y - cur.y;
+      var deg = Math.atan2(dx, dy) * 180 / Math.PI;
+      return ((deg - headingDeg) + 360) % 360;
+    }
+
+    function getDestination() {
+      return recordedPath[recordedPath.length - 1] || {x:0, y:0};
+    }
+
+    function updateNavUI() {
+      var dest = getDestination();
+      var dist = getDist(currentPos, dest);
+      var distStr = Math.round(dist) + ' m';
+
+      document.getElementById('distance-display').textContent = distStr + ' to destination';
+      document.getElementById('finder-distance').textContent  = Math.round(dist) + ' m';
+
+      var bearing = getBearingDeg(currentPos, dest, compassHeading);
+      document.getElementById('finder-arrow').setAttribute(
+        'transform', 'rotate(' + bearing + ', 130, 130)'
+      );
+
+      var near = dist <= ARRIVAL_DISTANCE_M;
+      document.getElementById('arrival-msg').style.display = near ? 'block' : 'none';
+      document.getElementById('finder-rings').classList.toggle('near', near);
+    }
+
+    function drawNavMap() {
+      if (appMode !== 'navigating' || navView !== 'map') return;
+      if (navCanvas.width === 0 || navCanvas.height === 0) { requestAnimationFrame(drawNavMap); return; }
+      navCtx.clearRect(0, 0, navCanvas.width, navCanvas.height);
+      var dest    = getDestination();
+      var allPts  = recordedPath.concat([currentPos]);
+      var t = buildTransform(navCanvas, allPts);
+      drawGrid(navCtx, navCanvas, t);
+      drawGlowingPath(navCtx, t, recordedPath, 0.5);           // recorded path, faded
+      drawDot(navCtx, t, {x:0, y:0}, '#69f0ae', 8);            // start — green
+      drawDot(navCtx, t, dest,        '#ff5252', 8);            // destination — red
+      drawDot(navCtx, t, currentPos,  '#ffffff', 6);            // person B — white
+      drawCompassRose(navCtx);
+      updateNavUI();
+      requestAnimationFrame(drawNavMap);
+    }
+    function drawNavFinder() {
+      if (appMode !== 'navigating' || navView !== 'finder') return;
+      updateNavUI();
+      requestAnimationFrame(drawNavFinder);
+    }
   </script>
 </body>
 </html>
