@@ -402,7 +402,7 @@
       var distStr = Math.round(dist) + ' m';
 
       document.getElementById('distance-display').textContent = distStr + ' to destination';
-      document.getElementById('finder-distance').textContent  = Math.round(dist) + ' m';
+      document.getElementById('finder-distance').textContent  = distStr;
 
       var bearing = getBearingDeg(currentPos, dest, compassHeading);
       document.getElementById('finder-arrow').setAttribute(
